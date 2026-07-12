@@ -1858,42 +1858,55 @@ function closeCheckoutModal() {
             if (e.target === this) closeCheckoutModal();
         });
 
-        function updateOrderSummary() {
-            const summaryEl = document.getElementById('orderSummary');
-            const totalEl = document.getElementById('checkoutTotal');
-            const subtotalEl = document.getElementById('checkoutSubtotal');
-            const countEl = document.getElementById('orderItemCount');
-            
-            if (cart.length === 0) {
-                summaryEl.innerHTML = '<p class="text-center text-gray-400 dark:text-gray-500 py-4">Chưa có sản phẩm nào</p>';
-                return;
-            }
-            
-            summaryEl.innerHTML = cart.map(item => `
-                <div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${item.name}</span>
-                        <span class="text-xs text-gray-400 dark:text-gray-500">x${item.qty}</span>
-                    </div>
-                    <span class="text-sm font-semibold text-gray-900 dark:text-white">${formatPrice(item.price * item.qty)}</span>
-                </div>
-            `).join('');
-            
-            const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-            const shipping = subtotal > 100000 ? 0 : 15000;
-            const total = subtotal + shipping;
-            
-            countEl.textContent = `${cart.reduce((sum, item) => sum + item.qty, 0)} sản phẩm`;
-            subtotalEl.textContent = formatPrice(subtotal);
-            document.getElementById('checkoutShipping').textContent = shipping === 0 ? 'Miễn phí' : formatPrice(shipping);
-            totalEl.textContent = formatPrice(total);
-        }
+       function updateOrderSummary() {
+    const summaryEl = document.getElementById('orderSummary');
+    const totalEl = document.getElementById('checkoutTotal');
+    const subtotalEl = document.getElementById('checkoutSubtotal');
+    const countEl = document.getElementById('orderItemCount');
+    
+    if (cart.length === 0) {
+        summaryEl.innerHTML = '<p class="text-center text-gray-400 dark:text-gray-500 py-4">Chưa có sản phẩm nào</p>';
+        return;
+    }
+    
+    summaryEl.innerHTML = cart.map(item => `
+        <div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+            <div class="flex items-center gap-2 min-w-0">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">${item.name}</span>
+                <span class="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">x${item.qty}</span>
+            </div>
+            <span class="text-sm font-semibold text-gray-900 dark:text-white flex-shrink-0">${formatPrice(item.price * item.qty)}</span>
+        </div>
+    `).join('');
+    
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+    
+    // Lấy hình thức nhận hàng đã chọn
+    const deliveryMethod = document.querySelector('input[name="deliveryMethod"]:checked');
+    const isPickup = deliveryMethod && deliveryMethod.value === 'pickup';
+    
+    // Nếu là đến lấy tại quán thì ship = 0, còn lại tính bình thường
+    let shipping = 0;
+    if (!isPickup) {
+        shipping = subtotal > 100000 ? 0 : 15000;
+    }
+    
+    const total = subtotal + shipping;
+    
+    countEl.textContent = `${cart.reduce((sum, item) => sum + item.qty, 0)} sản phẩm`;
+    subtotalEl.textContent = formatPrice(subtotal);
+    document.getElementById('checkoutShipping').textContent = shipping === 0 ? 'Miễn phí' : formatPrice(shipping);
+    totalEl.textContent = formatPrice(total);
+}
 
-        function selectDeliveryMethod(element, value) {
-            document.querySelectorAll('#deliveryMethod .payment-method').forEach(el => el.classList.remove('active'));
-            element.classList.add('active');
-            element.querySelector('input[type="radio"]').checked = true;
-        }
+       function selectDeliveryMethod(element, value) {
+    document.querySelectorAll('#deliveryMethod .payment-method').forEach(el => el.classList.remove('active'));
+    element.classList.add('active');
+    element.querySelector('input[type="radio"]').checked = true;
+    
+    // Cập nhật lại phí ship khi thay đổi hình thức nhận hàng
+    updateOrderSummary();
+}
 
         function selectPaymentMethod(element, value) {
             document.querySelectorAll('#paymentMethod .payment-method').forEach(el => el.classList.remove('active'));
@@ -1912,50 +1925,82 @@ function closeCheckoutModal() {
         }
 
         // ============ HANDLE CHECKOUT ============
-        function handleCheckout(e) {
-            e.preventDefault();
-            
-            const name = document.getElementById('customerName').value.trim();
-            const phone = document.getElementById('customerPhone').value.trim();
-            const address = document.getElementById('customerAddress').value.trim();
-            const time = document.getElementById('deliveryTime').value;
-            const note = document.getElementById('orderNote').value.trim();
-            const deliveryMethod = document.querySelector('input[name="deliveryMethod"]:checked').value;
-            const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-            
-            if (!name || !phone || !address || !time) {
-                showNotification('❌ Vui lòng điền đầy đủ thông tin!', 'error');
-                return;
-            }
-            
-            const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-            const methodText = deliveryMethod === 'delivery' ? '🛵 Giao hàng tận nơi' : '🏪 Đến lấy tại quán';
-            const paymentText = paymentMethod === 'cod' ? '💵 Thanh toán khi nhận hàng (COD)' : '🏦 Chuyển khoản ngân hàng';
-            
-            const itemsList = cart.map(item => `  • ${item.name} x${item.qty} = ${formatPrice(item.price * item.qty)}`).join('\n');
-            
-            const orderInfo = {
-                name: name,
-                phone: phone,
-                address: address,
-                time: new Date(time).toLocaleString('vi-VN'),
-                deliveryMethod: methodText,
-                paymentMethod: paymentText,
-                note: note,
-                items: itemsList,
-                total: formatPrice(total)
-            };
-            
-            // Gửi qua Telegram
-            sendOrderToTelegram(orderInfo);
-            
-            showNotification('🎉 Đặt hàng thành công! Đơn hàng đã được gửi đến nhà hàng.', 'success');
-            
-            cart = [];
-            updateCartUI();
-            closeCheckoutModal();
-            document.getElementById('checkoutForm').reset();
-        }
+       function handleCheckout(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('customerName').value.trim();
+    const phone = document.getElementById('customerPhone').value.trim();
+    const address = document.getElementById('customerAddress').value.trim();
+    const time = document.getElementById('deliveryTime').value;
+    const note = document.getElementById('orderNote').value.trim();
+    const deliveryMethod = document.querySelector('input[name="deliveryMethod"]:checked').value;
+    const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+    
+    if (!name || !phone || !address || !time) {
+        showNotification('❌ Vui lòng điền đầy đủ thông tin!', 'error');
+        return;
+    }
+    
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+    
+    // Tính phí ship dựa trên hình thức nhận hàng
+    let shipping = 0;
+    if (deliveryMethod === 'delivery') {
+        shipping = subtotal > 100000 ? 0 : 15000;
+    }
+    // Nếu là 'pickup' thì shipping = 0
+    
+    const total = subtotal + shipping;
+    const methodText = deliveryMethod === 'delivery' ? '🛵 Giao hàng tận nơi' : '🏪 Đến lấy tại quán';
+    const paymentText = paymentMethod === 'cod' ? '💵 Thanh toán khi nhận hàng (COD)' : '🏦 Chuyển khoản ngân hàng';
+    
+    const itemsList = cart.map(item => `  • ${item.name} x${item.qty} = ${formatPrice(item.price * item.qty)}`).join('\n');
+    
+    const orderInfo = {
+        name: name,
+        phone: phone,
+        address: address,
+        time: new Date(time).toLocaleString('vi-VN'),
+        deliveryMethod: methodText,
+        paymentMethod: paymentText,
+        note: note,
+        items: itemsList,
+        subtotal: formatPrice(subtotal),
+        shipping: shipping === 0 ? 'Miễn phí' : formatPrice(shipping),
+        total: formatPrice(total)
+    };
+    
+    // Cập nhật message gửi Telegram
+    const message = `
+🛵 <b>ĐƠN HÀNG MỚI!</b>
+━━━━━━━━━━━━━━━━
+👤 <b>Khách hàng:</b> ${orderInfo.name}
+📞 <b>SĐT:</b> ${orderInfo.phone}
+📍 <b>Địa chỉ:</b> ${orderInfo.address}
+🕐 <b>Thời gian:</b> ${orderInfo.time}
+🚚 <b>Nhận hàng:</b> ${orderInfo.deliveryMethod}
+💳 <b>Thanh toán:</b> ${orderInfo.paymentMethod}
+📝 <b>Ghi chú:</b> ${orderInfo.note || 'Không có'}
+━━━━━━━━━━━━━━━━
+<b>📋 CHI TIẾT ĐƠN HÀNG:</b>
+${orderInfo.items}
+━━━━━━━━━━━━━━━━
+💰 <b>Tạm tính:</b> ${orderInfo.subtotal}
+🚚 <b>Phí ship:</b> ${orderInfo.shipping}
+━━━━━━━━━━━━━━━━
+💰 <b>Tổng tiền:</b> ${orderInfo.total}
+    `;
+    
+    sendToTelegram(message);
+    
+    showNotification('🎉 Đặt hàng thành công! Đơn hàng đã được gửi đến nhà hàng.', 'success');
+    
+    cart = [];
+    updateCartUI();
+    closeCheckoutModal();
+    document.getElementById('checkoutForm').reset();
+    toggleCart();
+}
 
         // ============ PARTNER MODAL ============
         function openPartnerModal() {
