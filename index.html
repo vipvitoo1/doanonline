@@ -751,13 +751,14 @@
                 <div class="cart-items" id="cartItems">
                     <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">Chưa có sản phẩm nào</p>
                 </div>
-                <div class="cart-footer">
-                    <div class="total">
-                        <span>Tổng cộng:</span>
-                        <span class="total-price" id="cartTotal">0đ</span>
-                    </div>
-                    <button class="btn-checkout" onclick="openCheckoutModal()">Tiến hành thanh toán</button>
-                </div>
+                <!-- Trong cart-footer -->
+<div class="cart-footer">
+    <div class="total">
+        <span>Tổng cộng:</span>
+        <span class="total-price" id="cartTotal">0đ</span>
+    </div>
+    <button class="btn-checkout" onclick="openCheckoutModal()">Tiến hành thanh toán</button>
+</div>
             </div>
 
             <!-- Header -->
@@ -1779,21 +1780,74 @@ ${orderInfo.items}
         }
 
         // ============ CHECKOUT MODAL ============
-        function openCheckoutModal() {
-            if (cart.length === 0) {
-                showNotification('Giỏ hàng trống! Hãy thêm sản phẩm.', 'error');
-                return;
-            }
-            
-            const now = new Date();
-            now.setMinutes(now.getMinutes() + 30);
-            const defaultTime = now.toISOString().slice(0, 16);
-            document.getElementById('deliveryTime').value = defaultTime;
-            
-            updateOrderSummary();
-            document.getElementById('checkoutModal').classList.add('active');
-            document.body.style.overflow = 'hidden';
+function openCheckoutModal() {
+    if (cart.length === 0) {
+        showNotification('Giỏ hàng trống! Hãy thêm sản phẩm.', 'error');
+        return;
+    }
+    
+    // Đóng giỏ hàng trước khi mở modal thanh toán
+    const sidebar = document.getElementById('cartSidebar');
+    const overlay = document.getElementById('cartOverlay');
+    if (sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+        document.body.classList.remove('no-scroll');
+    }
+    
+    // Đợi một chút để animation đóng giỏ hàng hoàn tất rồi mới mở modal
+    setTimeout(() => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 30);
+        const defaultTime = now.toISOString().slice(0, 16);
+        document.getElementById('deliveryTime').value = defaultTime;
+        
+        updateOrderSummary();
+        document.getElementById('checkoutModal').classList.add('active');
+        document.body.classList.add('no-scroll');
+    }, 350); // 350ms tương ứng với thời gian animation của giỏ hàng
+}
+
+// Cập nhật lại hàm toggleCart để quản lý no-scroll tốt hơn
+function toggleCart() {
+    const sidebar = document.getElementById('cartSidebar');
+    const overlay = document.getElementById('cartOverlay');
+    const isOpen = sidebar.classList.contains('open');
+    
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('active');
+    
+    // Chỉ thêm no-scroll khi mở giỏ hàng, không xóa khi đóng vì có thể đang có modal khác mở
+    if (!isOpen) {
+        document.body.classList.add('no-scroll');
+    } else {
+        // Kiểm tra xem có modal nào đang mở không trước khi xóa no-scroll
+        const checkoutModal = document.getElementById('checkoutModal');
+        const restaurantModal = document.getElementById('restaurantModal');
+        const partnerModal = document.getElementById('partnerModal');
+        
+        if (!checkoutModal.classList.contains('active') && 
+            !restaurantModal.classList.contains('active') && 
+            !partnerModal.classList.contains('active')) {
+            document.body.classList.remove('no-scroll');
         }
+    }
+}
+
+// Cập nhật hàm closeCheckoutModal để đảm bảo xóa no-scroll đúng cách
+function closeCheckoutModal() {
+    document.getElementById('checkoutModal').classList.remove('active');
+    // Kiểm tra xem có modal hay giỏ hàng nào đang mở không
+    const sidebar = document.getElementById('cartSidebar');
+    const restaurantModal = document.getElementById('restaurantModal');
+    const partnerModal = document.getElementById('partnerModal');
+    
+    if (!sidebar.classList.contains('open') && 
+        !restaurantModal.classList.contains('active') && 
+        !partnerModal.classList.contains('active')) {
+        document.body.classList.remove('no-scroll');
+    }
+}
 
         function closeCheckoutModal() {
             document.getElementById('checkoutModal').classList.remove('active');
